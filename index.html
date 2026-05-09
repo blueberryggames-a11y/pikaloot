@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Pika.Solutions — Share & Earn</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+</head>
+<body>
+  <div class="noise"></div>
+
+  <nav>
+    <a href="index.html" class="logo">pika<span>.</span>solutions</a>
+    <div class="nav-links">
+      <a href="pages/dashboard.html">Dashboard</a>
+      <a href="pages/how-it-works.html">How it works</a>
+    </div>
+  </nav>
+
+  <main>
+    <section class="hero">
+      <div class="hero-badge">💸 Earn per download</div>
+      <h1>Share files.<br/><span class="accent">Get paid.</span></h1>
+      <p class="hero-sub">Upload anything — loot boxes, mods, presets, templates. Your audience completes a quick task, you earn cash. Simple.</p>
+
+      <div class="upload-zone" id="uploadZone">
+        <div class="upload-inner">
+          <div class="upload-icon">📦</div>
+          <p class="upload-title">Drop your file here</p>
+          <p class="upload-sub">or click to browse — up to 2GB</p>
+          <input type="file" id="fileInput" hidden />
+          <button class="btn-primary" onclick="document.getElementById('fileInput').click()">Choose File</button>
+        </div>
+      </div>
+
+      <div class="upload-progress" id="uploadProgress" style="display:none">
+        <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+        <p id="progressLabel">Uploading...</p>
+      </div>
+
+      <div class="upload-result" id="uploadResult" style="display:none">
+        <div class="result-card">
+          <p class="result-label">🎉 Your link is ready!</p>
+          <div class="link-row">
+            <input type="text" id="resultLink" readonly />
+            <button class="btn-copy" onclick="copyLink()">Copy</button>
+          </div>
+          <p class="result-hint">Share it — you earn every time someone unlocks it.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="stats-bar">
+      <div class="stat"><span class="stat-num">$0.10–0.80</span><span class="stat-label">per unlock</span></div>
+      <div class="stat-divider"></div>
+      <div class="stat"><span class="stat-num">2GB</span><span class="stat-label">max file size</span></div>
+      <div class="stat-divider"></div>
+      <div class="stat"><span class="stat-num">instant</span><span class="stat-label">payouts via PayPal</span></div>
+    </section>
+
+    <section class="how-section">
+      <h2>How it works</h2>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">01</div>
+          <h3>Upload</h3>
+          <p>Drop your file. We host it securely on Firebase.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">02</div>
+          <h3>Share</h3>
+          <p>Get a unique link. Post it anywhere — Discord, Reddit, YouTube.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">03</div>
+          <h3>Earn</h3>
+          <p>Visitors complete one quick offer to unlock your file. You get paid.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>© 2025 pika.solutions &nbsp;·&nbsp; <a href="pages/privacy.html">Privacy Policy</a> &nbsp;·&nbsp; <a href="pages/terms.html">Terms</a></p>
+  </footer>
+
+  <!-- Firebase SDKs -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
+    import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyByjLaBDMcBlJKpIEa0hR8yHFRRQFP4OBw",
+      authDomain: "loot-baaca.firebaseapp.com",
+      projectId: "loot-baaca",
+      storageBucket: "loot-baaca.firebasestorage.app",
+      messagingSenderId: "675901440162",
+      appId: "1:675901440162:web:600ea691407c5ee3a197fb",
+      measurementId: "G-NMTE7MR76Z"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const storage = getStorage(app);
+    const db = getFirestore(app);
+
+    const uploadZone = document.getElementById('uploadZone');
+    const fileInput = document.getElementById('fileInput');
+
+    // Drag & drop
+    uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+    uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+    uploadZone.addEventListener('drop', e => {
+      e.preventDefault();
+      uploadZone.classList.remove('drag-over');
+      const file = e.dataTransfer.files[0];
+      if (file) startUpload(file);
+    });
+
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files[0]) startUpload(fileInput.files[0]);
+    });
+
+    async function startUpload(file) {
+      uploadZone.style.display = 'none';
+      document.getElementById('uploadProgress').style.display = 'block';
+
+      const fileId = crypto.randomUUID();
+      const storageRef = ref(storage, `uploads/${fileId}/${file.name}`);
+      const uploadTask = uploadBytesResumable(storageRef, file);
+
+      uploadTask.on('state_changed',
+        (snapshot) => {
+          const pct = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
+          document.getElementById('progressFill').style.width = pct + '%';
+          document.getElementById('progressLabel').textContent = `Uploading... ${pct}%`;
+        },
+        (err) => {
+          alert('Upload failed: ' + err.message);
+          uploadZone.style.display = 'flex';
+          document.getElementById('uploadProgress').style.display = 'none';
+        },
+        async () => {
+          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+
+          // Save metadata to Firestore
+          const docRef = await addDoc(collection(db, 'files'), {
+            fileId,
+            fileName: file.name,
+            fileSize: file.size,
+            downloadURL,
+            createdAt: serverTimestamp(),
+            unlocks: 0
+          });
+
+          const lockerLink = `${location.origin}/pages/unlock.html?id=${docRef.id}`;
+          document.getElementById('uploadProgress').style.display = 'none';
+          document.getElementById('uploadResult').style.display = 'block';
+          document.getElementById('resultLink').value = lockerLink;
+        }
+      );
+    }
+
+    window.copyLink = function() {
+      const input = document.getElementById('resultLink');
+      input.select();
+      navigator.clipboard.writeText(input.value);
+      const btn = document.querySelector('.btn-copy');
+      btn.textContent = 'Copied!';
+      setTimeout(() => btn.textContent = 'Copy', 2000);
+    };
+  </script>
+</body>
+</html>
