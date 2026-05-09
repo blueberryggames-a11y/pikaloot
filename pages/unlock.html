@@ -87,12 +87,18 @@
       btn.textContent = '⬇️ Download File';
     };
 
+    const WORKER = "https://wispy-thunder-5d7d.xxgoldenwarriors.workers.dev";
+
     window.downloadFile = async function() {
       if (!unlocked || !fileData) return;
       // Increment unlock count
       await updateDoc(doc(db, 'files', fileDocId), { unlocks: increment(1) });
-      // Trigger download
-      window.open(fileData.downloadURL, '_blank');
+      // Route download through Cloudflare Worker to avoid CORS
+      let dlUrl = fileData.downloadURL;
+      if (dlUrl.includes('firebasestorage.googleapis.com')) {
+        dlUrl = dlUrl.replace('https://firebasestorage.googleapis.com', WORKER);
+      }
+      window.open(dlUrl, '_blank');
     };
 
     // Called by your real CPA locker on task completion
