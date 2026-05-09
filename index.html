@@ -129,14 +129,17 @@
       document.getElementById('uploadProgress').style.display = 'block';
 
       const fileId = crypto.randomUUID();
-      const encodedName = encodeURIComponent(`uploads/${fileId}/${file.name}`);
+      const filePath = `uploads/${fileId}/${file.name}`;
+      const encodedPath = encodeURIComponent(filePath);
 
-      // Upload via Cloudflare Worker (bypasses CORS)
-      const uploadUrl = `${WORKER}/v0/b/${BUCKET}/o?name=${encodedName}&key=${API_KEY}`;
+      // Firebase Storage REST API via Cloudflare Worker (fixes CORS)
+      // New Firebase buckets (*.firebasestorage.app) use firebasestorage.googleapis.com endpoint
+      const uploadUrl = `${WORKER}/v0/b/${BUCKET}/o?name=${encodedPath}&uploadType=media&key=${API_KEY}`;
 
       const xhr = new XMLHttpRequest();
       xhr.open('POST', uploadUrl);
       xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+      xhr.setRequestHeader('X-Goog-Upload-Protocol', 'raw');
 
       xhr.upload.onprogress = (e) => {
         if (e.lengthComputable) {
@@ -160,8 +163,8 @@
           return;
         }
 
-        // Build the download URL through the worker too
-        const downloadURL = `${WORKER}/v0/b/${BUCKET}/o/${encodedName}?alt=media&key=${API_KEY}`;
+        // Download URL goes through worker too so no CORS on the download side
+        const downloadURL = `${WORKER}/v0/b/${BUCKET}/o/${encodedPath}?alt=media&key=${API_KEY}`;
 
         // Save metadata to Firestore
         const docRef = await addDoc(collection(db, 'files'), {
