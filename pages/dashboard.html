@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Dashboard — Pika.Solutions</title>
+  <link rel="stylesheet" href="../css/style.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <style>
+    .dash-wrap { max-width: 900px; margin: 0 auto; padding: 3rem 2rem 5rem; }
+    .dash-header { margin-bottom: 2.5rem; }
+    .dash-header h1 { font-size: 2.5rem; font-weight: 800; letter-spacing: -0.03em; }
+    .dash-header p { color: var(--muted); font-family: var(--font-mono); font-size: 0.85rem; margin-top: 0.4rem; }
+    .dash-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; margin-bottom: 2.5rem; }
+    .dash-stat-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px; padding: 1.5rem;
+    }
+    .dash-stat-card .label { font-family: var(--font-mono); font-size: 0.75rem; color: var(--muted); margin-bottom: 0.4rem; }
+    .dash-stat-card .value { font-size: 2rem; font-weight: 800; color: var(--accent); letter-spacing: -0.03em; }
+    table { width: 100%; border-collapse: collapse; }
+    th {
+      text-align: left; font-family: var(--font-mono); font-size: 0.75rem;
+      color: var(--muted); padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+    td {
+      padding: 1rem; font-size: 0.9rem;
+      border-bottom: 1px solid var(--border);
+    }
+    td.mono { font-family: var(--font-mono); font-size: 0.82rem; color: var(--muted); }
+    td .copy-link { 
+      background: none; border: 1px solid var(--border); border-radius: 6px;
+      color: var(--accent); font-family: var(--font-mono); font-size: 0.75rem;
+      padding: 0.25rem 0.6rem; cursor: pointer; transition: background 0.2s;
+    }
+    td .copy-link:hover { background: var(--border); }
+    .empty-state { text-align: center; padding: 4rem 2rem; color: var(--muted); font-family: var(--font-mono); }
+    .empty-state p { margin-bottom: 1.2rem; }
+  </style>
+</head>
+<body>
+  <div class="noise"></div>
+  <nav>
+    <a href="../index.html" class="logo">pika<span>.</span>solutions</a>
+    <div class="nav-links">
+      <a href="dashboard.html" style="color:var(--accent)">Dashboard</a>
+      <a href="how-it-works.html">How it works</a>
+    </div>
+  </nav>
+
+  <div class="dash-wrap">
+    <div class="dash-header">
+      <h1>Dashboard</h1>
+      <p>Track your uploads, unlocks, and estimated earnings.</p>
+    </div>
+
+    <div class="dash-stats">
+      <div class="dash-stat-card"><div class="label">Total Uploads</div><div class="value" id="totalUploads">—</div></div>
+      <div class="dash-stat-card"><div class="label">Total Unlocks</div><div class="value" id="totalUnlocks">—</div></div>
+      <div class="dash-stat-card"><div class="label">Est. Earnings</div><div class="value" id="estEarnings">—</div></div>
+    </div>
+
+    <div id="tableWrap">
+      <table id="fileTable">
+        <thead>
+          <tr>
+            <th>File</th>
+            <th>Uploaded</th>
+            <th>Unlocks</th>
+            <th>Link</th>
+          </tr>
+        </thead>
+        <tbody id="fileTableBody">
+        </tbody>
+      </table>
+      <div class="empty-state" id="emptyState" style="display:none">
+        <p>No uploads yet.</p>
+        <a href="../index.html"><button class="btn-primary">Upload your first file</button></a>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getFirestore, collection, getDocs, orderBy, query } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    // 🔥 Same config
+    const firebaseConfig = {
+      apiKey: "AIzaSyByjLaBDMcBlJKpIEa0hR8yHFRRQFP4OBw",
+      authDomain: "loot-baaca.firebaseapp.com",
+      projectId: "loot-baaca",
+      storageBucket: "loot-baaca.firebasestorage.app",
+      messagingSenderId: "675901440162",
+      appId: "1:675901440162:web:600ea691407c5ee3a197fb",
+      measurementId: "G-NMTE7MR76Z"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    async function loadDashboard() {
+      const q = query(collection(db, 'files'), orderBy('createdAt', 'desc'));
+      const snap = await getDocs(q);
+      const files = [];
+      snap.forEach(doc => files.push({ id: doc.id, ...doc.data() }));
+
+      document.getElementById('totalUploads').textContent = files.length;
+      const totalUnlocks = files.reduce((s, f) => s + (f.unlocks || 0), 0);
+      document.getElementById('totalUnlocks').textContent = totalUnlocks;
+      document.getElementById('estEarnings').textContent = '$' + (totalUnlocks * 0.35).toFixed(2);
+
+      const tbody = document.getElementById('fileTableBody');
+      if (files.length === 0) {
+        document.getElementById('fileTable').style.display = 'none';
+        document.getElementById('emptyState').style.display = 'block';
+        return;
+      }
+
+      files.forEach(f => {
+        const link = `${location.origin}/pages/unlock.html?id=${f.id}`;
+        const date = f.createdAt ? new Date(f.createdAt.seconds * 1000).toLocaleDateString() : '—';
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${f.fileName}</td>
+          <td class="mono">${date}</td>
+          <td class="mono">${f.unlocks || 0}</td>
+          <td><button class="copy-link" data-link="${link}">Copy Link</button></td>
+        `;
+        tbody.appendChild(row);
+      });
+
+      document.querySelectorAll('.copy-link').forEach(btn => {
+        btn.addEventListener('click', () => {
+          navigator.clipboard.writeText(btn.dataset.link);
+          const orig = btn.textContent;
+          btn.textContent = 'Copied!';
+          setTimeout(() => btn.textContent = orig, 1800);
+        });
+      });
+    }
+
+    loadDashboard();
+  </script>
+</body>
+</html>

@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Unlock File — Pika.Solutions</title>
+  <link rel="stylesheet" href="../css/style.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+</head>
+<body>
+  <div class="noise"></div>
+
+  <nav>
+    <a href="../index.html" class="logo">pika<span>.</span>solutions</a>
+  </nav>
+
+  <div class="unlock-wrap">
+    <div class="unlock-card" id="unlockCard">
+      <div class="file-icon">📦</div>
+      <h2 id="fileName">Loading file...</h2>
+      <p class="file-meta" id="fileMeta">—</p>
+
+      <div class="lock-notice">
+        <p>🔒 This file is locked. Complete <strong>one quick task</strong> below to unlock your download. The uploader earns a small reward — it only takes 30 seconds!</p>
+      </div>
+
+      <!-- ━━━ CPA LOCKER WIDGET GOES HERE ━━━
+           Replace the placeholder below with your CPAGrip / AdWorkMedia
+           content locker embed code. The widget will handle all tasks
+           (app downloads, surveys, etc.) and call the unlock callback.
+      -->
+      <div id="cpaLockerContainer">
+        <!-- PLACEHOLDER: swap this div with your CPA locker script tag -->
+        <div style="background:var(--surface2);border:1px dashed var(--border);border-radius:12px;padding:2rem;font-family:var(--font-mono);font-size:0.8rem;color:var(--muted);">
+          <p style="margin-bottom:0.5rem">⚙️ <strong style="color:var(--accent)">CPA Locker goes here</strong></p>
+          <p>Sign up at <strong>cpagrip.com</strong> or <strong>adworksmedia.com</strong>, create a content locker, and paste the embed code here.</p>
+          <br/>
+          <!-- DEMO ONLY: simulates task completion -->
+          <button class="btn-primary" onclick="simulateTaskComplete()" style="font-size:0.82rem;padding:0.5rem 1.2rem">
+            [DEMO] Simulate Task Complete
+          </button>
+        </div>
+      </div>
+
+      <button class="unlock-btn" id="downloadBtn" disabled onclick="downloadFile()">
+        🔒 Complete a task to unlock
+      </button>
+    </div>
+  </div>
+
+  <!-- Firebase -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getFirestore, doc, getDoc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    // 🔥 Same config
+    const firebaseConfig = {
+      apiKey: "AIzaSyByjLaBDMcBlJKpIEa0hR8yHFRRQFP4OBw",
+      authDomain: "loot-baaca.firebaseapp.com",
+      projectId: "loot-baaca",
+      storageBucket: "loot-baaca.firebasestorage.app",
+      messagingSenderId: "675901440162",
+      appId: "1:675901440162:web:600ea691407c5ee3a197fb",
+      measurementId: "G-NMTE7MR76Z"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const params = new URLSearchParams(location.search);
+    const fileDocId = params.get('id');
+
+    let fileData = null;
+    let unlocked = false;
+
+    async function loadFile() {
+      if (!fileDocId) {
+        document.getElementById('fileName').textContent = 'Invalid link';
+        return;
+      }
+      const snap = await getDoc(doc(db, 'files', fileDocId));
+      if (!snap.exists()) {
+        document.getElementById('fileName').textContent = 'File not found';
+        return;
+      }
+      fileData = snap.data();
+      document.getElementById('fileName').textContent = fileData.fileName;
+      document.title = `${fileData.fileName} — Pika.Solutions`;
+      const sizeLabel = fileData.fileSize > 1048576
+        ? (fileData.fileSize / 1048576).toFixed(1) + ' MB'
+        : (fileData.fileSize / 1024).toFixed(0) + ' KB';
+      document.getElementById('fileMeta').textContent = `${sizeLabel} · ${fileData.unlocks || 0} unlocks`;
+    }
+
+    window.simulateTaskComplete = function() {
+      unlocked = true;
+      const btn = document.getElementById('downloadBtn');
+      btn.disabled = false;
+      btn.textContent = '⬇️ Download File';
+    };
+
+    window.downloadFile = async function() {
+      if (!unlocked || !fileData) return;
+      // Increment unlock count
+      await updateDoc(doc(db, 'files', fileDocId), { unlocks: increment(1) });
+      // Trigger download
+      window.open(fileData.downloadURL, '_blank');
+    };
+
+    // Called by your real CPA locker on task completion
+    // Most lockers let you set a JS callback — point it here
+    window.cpaLockerUnlocked = function() {
+      window.simulateTaskComplete();
+    };
+
+    loadFile();
+  </script>
+</body>
+</html>
